@@ -1,0 +1,33 @@
+name: Scheduled Trend Radar
+
+on:
+  schedule:
+    # 6:00 AM EDT (10:00 UTC)
+    - cron: '0 10 * * *'
+    # 3:30 PM EDT (19:30 UTC)
+    - cron: '30 19 * * *'
+  workflow_dispatch: # Allows manual trigger button in GitHub
+
+jobs:
+  run-radar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Caches seen_items.json between cloud runs so you don't get duplicate alerts
+      - name: Restore seen items cache
+        uses: actions/cache@v4
+        with:
+          path: seen_items.json
+          key: trend-cache-${{ github.run_id }}
+          restore-keys: |
+            trend-cache-
+
+      - name: Execute Trend Scanner
+        run: python3 trend_monitor.py --once
