@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Soccer, ASMR & Phonk Shorts Radar Bot v3.3 (Video-Only & Anti-Screenshot Filter)
-- Strictly filters for real playable video clips (drops static screenshots, photos, and text posts).
-- Subreddits: Live soccer goals & skills (r/soccer, r/football, r/EASportsFC, r/soccercirclejerk)
-  + Viral ASMR & Oddly Satisfying clips (r/oddlysatisfying, r/Satisfyingasfuck, r/asmr)
-  + Underground & Brazilian Phonk music (r/phonk).
-- Both fresh breakout (rising) and near-viral (hot) clips.
-- 1-Click 1080p MP4 download links for instant clipping.
-- CapCut Velocity & ASMR Template search links.
+Soccer, ASMR & Phonk Shorts Radar Bot v3.4
+- Strict Youth-Audience Focus: Real in-game soccer highlights & superstar skill plays.
+- Viral ASMR & Oddly Satisfying video feeds.
+- Expanded Video Host recognition (including streamff, dubz, streamin, v.redd.it).
+- Anti-Screenshot Filter: Drops all static images, text discussions, and memes.
+- 1-Click 1080p MP4 Downloader.
+- 1-Click CapCut Template search links for velocity & ASMR beat syncs.
 """
 
 import os
@@ -37,67 +36,65 @@ logger = logging.getLogger("TrendRadar")
 # Your Pre-configured Discord Webhook
 ACTIVE_WEBHOOK_URL = "https://discord.com/api/webhooks/1552645608676786237/_uaGO9XTJld8xOYtICDBm1MOuiaXD-Xh8Xwn8bwXdpDqP2_4eSqWJNQePImgNEk3NIQB"
 
-# Safety Blocklist: Automatically drops any inappropriate, adult, or political themes
+# Strict Safety Blocklist: Drops adult themes, violence, controversies, injury drama, and politics
 SAFETY_BLOCKLIST = [
     "nsfw", "porn", "sex", "nude", "naked", "arrest", "murder", "shooting",
     "killed", "death", "dead", "fatal", "court", "trial", "lawsuit", "drug",
     "drugs", "cocaine", "overdose", "war", "ukraine", "russia", "israel", "gaza",
     "biden", "trump", "harris", "election", "senate", "congress", "democrat",
-    "republican", "suicide", "crash", "dui", "assault", "scandal", "racist"
+    "republican", "suicide", "crash", "dui", "assault", "scandal", "racist",
+    "injury", "brawl", "fight", "referee controversy", "statement"
 ]
 
-# Niche Whitelist for Google Trends: Only allow sports, soccer, gaming, ASMR, and phonk topics
-NICHE_KEYWORDS = [
-    "goal", "assist", "skills", "save", "penalty", "red card", "soccer", "football",
-    "champions league", "premier league", "la liga", "serie a", "mls", "fifa", "ea fc",
-    "fc 25", "messi", "ronaldo", "mbappe", "yamal", "vinicius", "vini", "bellingham",
-    "haaland", "neymar", "phonk", "brazil", "brazilian", "montage", "edit", "clip",
-    "fortnite", "gaming", "streamer", "highlight", "derby", "cup", "real madrid",
-    "barcelona", "arsenal", "manchester", "liverpool", "psg", "inter miami", "world cup",
-    "asmr", "satisfying", "kinetic", "soap cutting", "slime", "oddly satisfying"
+# Patterns that prove a post is an actual soccer goal/skill video, rather than discussion or news
+SOCCER_HIGHLIGHT_PATTERNS = [
+    r'\[\d+\]', r'\d+\s*-\s*\[?\d+\]?', r"\d+['’]",  # e.g. [1]-0 or 83'
+    r'great goal', r'goal', r'skills?', r'assist', r'save', r'free kick', r'dribble',
+    r'nutmeg', r'bicycle kick', r'volley', r'solo run', r'celebration', r'curler',
+    r'ronaldo', r'messi', r'yamal', r'vinicius', r'vini', r'bellingham', r'haaland',
+    r'mbappe', r'neymar', r'endrick', r'ishowspeed', r'speed', r'trick'
 ]
 
-# Media Filters: Distinguish real video hosts from static images / screenshots
+# Verified video hosts
+VIDEO_HOSTS = [
+    "v.redd.it", "streamin.me", "streamin.one", "streamin.to", "dubz.co", "dubz.link",
+    "streamff.com", "streamja.com", "streamable.com", "streamye.com", "youtube.com",
+    "youtu.be", "tiktok.com", "clips.twitch.tv", "redgifs.com"
+]
+
 IMAGE_INDICATORS = [
     "i.redd.it", "i.imgur.com", "imgur.com", "/gallery/",
     ".jpg", ".jpeg", ".png", ".webp"
 ]
 
-VIDEO_HOSTS = [
-    "v.redd.it", "streamin.me", "dubz.co", "dubz.link", "streamja.com",
-    "streamable.com", "streamye.com", "youtube.com", "youtu.be",
-    "tiktok.com", "clips.twitch.tv", "redgifs.com"
-]
-
 DEFAULT_CONFIG = {
     "webhook_url": ACTIVE_WEBHOOK_URL,
-    "poll_interval_seconds": 600,  # 10 minutes
+    "poll_interval_seconds": 600,
     "state_file": "seen_items.json",
-    "google_trends": {
-        "enabled": True,
-        "geo": "US",
-        "feed_url": "https://trends.google.com/trending/rss?geo=US",
-        "filter_niche_only": True
-    },
-    "reddit_monitor": {
-        "enabled": True,
-        "video_only": True,  # Strictly drops screenshots and images
-        "subreddits": [
-            # Soccer / Sports Highlights
-            "soccer",
-            "football",
-            "EASportsFC",
-            "soccercirclejerk",
-            # ASMR & Oddly Satisfying Viral Clips
-            "oddlysatisfying",
-            "Satisfyingasfuck",
-            "asmr",
-            # Music & Trends
-            "phonk"
-        ],
-        "feeds": ["rising", "hot"],
-        "limit_per_feed": 25
-    }
+    "max_alerts_per_cycle": 10,
+    "feeds": [
+        {
+            "name": "Soccer Highlights & Skills",
+            "type": "soccer",
+            "subreddits": ["soccer", "footballhighlights", "EASportsFC"],
+            "sorts": ["rising", "hot"],
+            "limit": 40
+        },
+        {
+            "name": "Viral ASMR & Oddly Satisfying",
+            "type": "asmr",
+            "subreddits": ["oddlysatisfying", "Satisfyingasfuck", "soapcutting", "asmr"],
+            "sorts": ["rising", "hot"],
+            "limit": 30
+        },
+        {
+            "name": "Brazilian & Drift Phonk Audio",
+            "type": "phonk",
+            "subreddits": ["phonk"],
+            "sorts": ["hot"],
+            "limit": 15
+        }
+    ]
 }
 
 BROWSER_HEADERS = {
@@ -108,7 +105,7 @@ BROWSER_HEADERS = {
 
 
 def deep_merge(base, override):
-    """Recursively merges override dictionary into base dictionary without wiping sibling keys."""
+    """Recursively merges override dictionary into base dictionary."""
     for k, v in override.items():
         if isinstance(v, dict) and k in base and isinstance(base[k], dict):
             deep_merge(base[k], v)
@@ -117,7 +114,7 @@ def deep_merge(base, override):
 
 
 def is_content_safe(text):
-    """Returns False if text contains any adult, violent, or political words."""
+    """Returns False if text contains any adult, violent, or controversial words."""
     text_lower = text.lower()
     for word in SAFETY_BLOCKLIST:
         if re.search(r'\b' + re.escape(word) + r'\b', text_lower):
@@ -125,40 +122,37 @@ def is_content_safe(text):
     return True
 
 
-def matches_channel_niche(text):
-    """Returns True if the trend or post matches soccer, sports, phonk, gaming, or ASMR."""
-    text_lower = text.lower()
-    for kw in NICHE_KEYWORDS:
-        if kw in text_lower:
+def is_soccer_highlight(title):
+    """Ensures a soccer post is an actual goal or skill highlight rather than news or debate."""
+    t_lower = title.lower()
+    for pattern in SOCCER_HIGHLIGHT_PATTERNS:
+        if re.search(pattern, t_lower):
             return True
     return False
 
 
 def extract_media_details(permalink, raw_html):
-    """
-    Parses Reddit Atom HTML content to extract the direct media link and
-    determines if it is a real video vs static screenshot/image.
-    """
+    """Extracts direct media URL and verifies it is a playable video."""
     unescaped = html.unescape(raw_html) if raw_html else ""
     match = re.search(r'<a\s+href="([^"]+)">\[link\]</a>', unescaped)
     media_url = match.group(1) if match else permalink
     media_lower = media_url.lower()
 
-    # Reject known image hosts or extensions
+    # Reject static images
     for img_ind in IMAGE_INDICATORS:
         if img_ind in media_lower:
-            return False, media_url, "image"
+            return False, media_url
 
-    # Match confirmed video hosts
+    # Check for known video host
     for vh in VIDEO_HOSTS:
         if vh in media_lower:
-            return True, media_url, "video"
+            return True, media_url
 
-    # Check for native Reddit video embed in content
+    # Check for native reddit video embed
     if "v.redd.it" in unescaped:
-        return True, media_url, "video"
+        return True, media_url
 
-    return False, media_url, "unknown"
+    return False, media_url
 
 
 class Storage:
@@ -236,7 +230,7 @@ class WebhookClient:
             data=data,
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "TrendClipRadar/3.3"
+                "User-Agent": "TrendClipRadar/3.4"
             }
         )
 
@@ -261,228 +255,145 @@ class WebhookClient:
 
 
 class TrendScraper:
-    """Scrapes soccer, ASMR, and phonk video trends with anti-screenshot filtering and edit tooling."""
+    """Scrapes curated Soccer, ASMR, and Phonk video feeds with youth-oriented filtering."""
     def __init__(self, config, storage, webhook):
         self.config = config
         self.storage = storage
         self.webhook = webhook
 
-    def fetch_google_trends(self):
-        gt_cfg = self.config.get("google_trends", {})
-        if not gt_cfg.get("enabled", True):
-            return
-
-        feed_url = gt_cfg.get("feed_url", "https://trends.google.com/trending/rss?geo=US")
-        filter_niche = gt_cfg.get("filter_niche_only", True)
-        logger.info(f"Fetching Google Trends from {feed_url}")
-        req = urllib.request.Request(feed_url, headers=BROWSER_HEADERS)
-
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                xml_data = resp.read()
-            root = ET.fromstring(xml_data)
-
-            ns = {"ht": "https://trends.google.com/trending/rss"}
-
-            for item in root.findall(".//item"):
-                title_elem = item.find("title")
-                traffic_elem = item.find("ht:approx_traffic", ns)
-                desc_elem = item.find("description")
-
-                title = title_elem.text.strip() if title_elem is not None and title_elem.text else "Unknown Trend"
-                traffic = traffic_elem.text.strip() if traffic_elem is not None and traffic_elem.text else "High Search Spike"
-                description = desc_elem.text.strip() if desc_elem is not None and desc_elem.text else ""
-
-                if not is_content_safe(title) or not is_content_safe(description):
-                    continue
-
-                if filter_niche and not matches_channel_niche(title + " " + description):
-                    continue
-
-                news_item = item.find("ht:news_item", ns)
-                article_url = None
-                article_source = "Trending News"
-                if news_item is not None:
-                    url_elem = news_item.find("ht:news_item_url", ns)
-                    src_elem = news_item.find("ht:news_item_source", ns)
-                    if url_elem is not None and url_elem.text:
-                        article_url = url_elem.text.strip()
-                    if src_elem is not None and src_elem.text:
-                        article_source = src_elem.text.strip()
-
-                encoded_title = urllib.parse.quote(title)
-                primary_url = article_url if article_url else f"https://www.google.com/search?q={encoded_title}"
-
-                capcut_search_url = f"https://www.tiktok.com/search?q={encoded_title}+capcut+template"
-                phonk_audio_url = f"https://www.youtube.com/results?search_query=brazilian+phonk+{encoded_title}+edit+audio"
-                yt_shorts_url = f"https://www.youtube.com/results?search_query={encoded_title}+shorts"
-
-                item_id = "gtrend_" + hashlib.md5(title.encode("utf-8")).hexdigest()
-
-                if not self.storage.is_seen(item_id):
-                    fields = [
-                        {"name": "Search Volume", "value": f"📈 {traffic}", "inline": True},
-                        {"name": "Source", "value": f"📰 {article_source}", "inline": True},
-                        {
-                            "name": "✂️ CapCut Templates & Audio",
-                            "value": f"[CapCut Template Search]({capcut_search_url}) • [Brazilian Phonk Audio]({phonk_audio_url})",
-                            "inline": False
-                        },
-                        {
-                            "name": "🎬 Existing YouTube Shorts",
-                            "value": f"[View Existing Edits & Clips]({yt_shorts_url})",
-                            "inline": False
-                        }
-                    ]
-                    success = self.webhook.send_embed(
-                        title=f"🔥 Trending Topic: {title}",
-                        url=primary_url,
-                        description=f"Surging search trend right now.\n\n{description}",
-                        fields=fields,
-                        color=0x2ECC71,
-                        footer="Google Trends Real-time"
-                    )
-                    if success:
-                        self.storage.mark_seen(item_id)
-                        time.sleep(1)
-
-        except Exception as e:
-            logger.error(f"Error fetching Google Trends: {e}")
-
-    def fetch_reddit_clips(self):
-        reddit_cfg = self.config.get("reddit_monitor", {})
-        if not reddit_cfg.get("enabled", True):
-            return
-
-        video_only = reddit_cfg.get("video_only", True)
-        raw_sub_list = reddit_cfg.get("subreddits", ["soccer", "oddlysatisfying", "phonk"])
-        sub_list = [
-            s["name"] if isinstance(s, dict) else str(s)
-            for s in raw_sub_list
-            if (isinstance(s, dict) and "name" in s) or isinstance(s, str)
-        ]
-
-        feeds = reddit_cfg.get("feeds", ["rising", "hot"])
-        limit = reddit_cfg.get("limit_per_feed", 25)
-
-        combined_subs = "+".join(sub_list)
-
-        for feed_type in feeds:
-            rss_url = f"https://www.reddit.com/r/{combined_subs}/{feed_type}/.rss?limit={limit}"
-            logger.info(f"Fetching combined Reddit video feed: r/{combined_subs} [{feed_type}]")
-
-            req = urllib.request.Request(rss_url, headers=BROWSER_HEADERS)
-
-            try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    xml_data = resp.read()
-                root = ET.fromstring(xml_data)
-
-                ns = {"atom": "http://www.w3.org/2005/Atom"}
-                entries = root.findall(".//atom:entry", ns)
-                logger.info(f"Scanning {len(entries)} candidate posts in [{feed_type}] feed.")
-
-                for entry in entries:
-                    id_elem = entry.find("atom:id", ns)
-                    title_elem = entry.find("atom:title", ns)
-                    link_elem = entry.find("atom:link", ns)
-                    cat_elem = entry.find("atom:category", ns)
-                    content_elem = entry.find("atom:content", ns)
-
-                    raw_id = id_elem.text if id_elem is not None and id_elem.text else str(time.time())
-                    post_id = raw_id.split("/")[-1]
-                    title = title_elem.text.strip() if title_elem is not None and title_elem.text else "Clip"
-                    permalink = link_elem.attrib.get("href", "") if link_elem is not None else ""
-                    sub_name = cat_elem.attrib.get("term", "clips") if cat_elem is not None else "clips"
-                    raw_content = content_elem.text if content_elem is not None else ""
-
-                    if not is_content_safe(title):
-                        continue
-
-                    # Video-Only Check: Skip static screenshots, stat sheets, and photos
-                    is_video, direct_media_url, media_type = extract_media_details(permalink, raw_content)
-                    if video_only and not is_video:
-                        continue
-
-                    item_id = f"reddit_{post_id}"
-                    if not self.storage.is_seen(item_id):
-                        encoded_title = urllib.parse.quote(title)
-                        encoded_permalink = urllib.parse.quote(permalink)
-
-                        # RapidSave 1-Click 1080p MP4 Downloader
-                        download_url = f"https://rapidsave.com/info?url={encoded_permalink}"
-
-                        # Determine category aesthetic: Soccer vs ASMR vs Phonk
-                        sub_lower = sub_name.lower()
-                        if "asmr" in sub_lower or "satisfying" in sub_lower:
-                            icon = "✨"
-                            category_label = "Satisfying / ASMR Video"
-                            capcut_query = f"{encoded_title}+satisfying+asmr+capcut+template"
-                            audio_query = f"satisfying+asmr+relaxing+trending+tiktok+audio"
-                            embed_color = 0x9B59B6  # Purple
-                        elif sub_lower == "phonk":
-                            icon = "🎵"
-                            category_label = "Brazilian / Drift Phonk Audio"
-                            capcut_query = f"brazilian+phonk+velocity+edit+capcut+template"
-                            audio_query = f"brazilian+phonk+new+age+edit+audio"
-                            embed_color = 0x3498DB  # Blue
-                        elif "fc" in sub_lower:
-                            icon = "🎮"
-                            category_label = "EA FC / Gaming Highlight"
-                            capcut_query = f"{encoded_title}+ea+fc+velocity+capcut+template"
-                            audio_query = f"brazilian+phonk+soccer+edit+audio"
-                            embed_color = 0x1ABC9C  # Teal
-                        else:
-                            icon = "⚽"
-                            category_label = "Soccer Highlight / Goal"
-                            capcut_query = f"{encoded_title}+velocity+edit+capcut+template"
-                            audio_query = f"brazilian+phonk+soccer+edit+audio"
-                            embed_color = 0xE67E22  # Orange
-
-                        capcut_search_url = f"https://www.tiktok.com/search?q={capcut_query}"
-                        audio_search_url = f"https://www.youtube.com/results?search_query={audio_query}"
-
-                        fields = [
-                            {"name": "Subreddit", "value": f"r/{sub_name}", "inline": True},
-                            {"name": "Category", "value": f"{category_label}", "inline": True},
-                            {"name": "Velocity", "value": f"⚡ {feed_type.upper()}", "inline": True},
-                            {
-                                "name": "⬇️ Direct Video & Downloader",
-                                "value": f"[▶️ Watch Direct Video]({direct_media_url})\n[📥 1-Click 1080p MP4 Download]({download_url})",
-                                "inline": False
-                            },
-                            {
-                                "name": "✂️ CapCut Templates & Audio",
-                                "value": f"[Find CapCut Velocity Template]({capcut_search_url}) • [Trending Sounds]({audio_search_url})",
-                                "inline": False
-                            }
-                        ]
-
-                        success = self.webhook.send_embed(
-                            title=f"{icon} {title}",
-                            url=direct_media_url,  # Primary click opens the actual video directly
-                            description=f"Fresh video clip trending in r/{sub_name} ({feed_type}).",
-                            fields=fields,
-                            color=embed_color,
-                            footer=f"Reddit r/{sub_name} • Video-Only Verified"
-                        )
-                        if success:
-                            self.storage.mark_seen(item_id)
-                            time.sleep(1)
-
-                time.sleep(2)
-
-            except urllib.error.HTTPError as e:
-                logger.error(f"HTTP error fetching Reddit RSS for {feed_type}: {e.code} {e.reason}")
-            except Exception as e:
-                logger.error(f"Error fetching Reddit RSS for {feed_type}: {e}")
-
     def run_cycle(self):
-        logger.info("Starting trend & clip scan cycle...")
-        self.fetch_google_trends()
-        self.fetch_reddit_clips()
+        logger.info("Starting curated video clip scan cycle...")
+        dispatched_count = 0
+        max_alerts = self.config.get("max_alerts_per_cycle", 10)
+
+        for feed_group in self.config.get("feeds", []):
+            if dispatched_count >= max_alerts:
+                break
+
+            group_name = feed_group.get("name", "Clips")
+            category_type = feed_group.get("type", "soccer")
+            subreddits = feed_group.get("subreddits", ["soccer"])
+            sorts = feed_group.get("sorts", ["rising", "hot"])
+            limit = feed_group.get("limit", 30)
+
+            combined_subs = "+".join(subreddits)
+
+            for sort_type in sorts:
+                if dispatched_count >= max_alerts:
+                    break
+
+                rss_url = f"https://www.reddit.com/r/{combined_subs}/{sort_type}/.rss?limit={limit}"
+                logger.info(f"Checking [{group_name}] r/{combined_subs} ({sort_type})...")
+
+                req = urllib.request.Request(rss_url, headers=BROWSER_HEADERS)
+
+                try:
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        xml_data = resp.read()
+                    root = ET.fromstring(xml_data)
+
+                    ns = {"atom": "http://www.w3.org/2005/Atom"}
+                    entries = root.findall(".//atom:entry", ns)
+
+                    for entry in entries:
+                        if dispatched_count >= max_alerts:
+                            break
+
+                        id_elem = entry.find("atom:id", ns)
+                        title_elem = entry.find("atom:title", ns)
+                        link_elem = entry.find("atom:link", ns)
+                        cat_elem = entry.find("atom:category", ns)
+                        content_elem = entry.find("atom:content", ns)
+
+                        raw_id = id_elem.text if id_elem is not None and id_elem.text else str(time.time())
+                        post_id = raw_id.split("/")[-1]
+                        title = title_elem.text.strip() if title_elem is not None and title_elem.text else "Clip"
+                        permalink = link_elem.attrib.get("href", "") if link_elem is not None else ""
+                        sub_name = cat_elem.attrib.get("term", "clips") if cat_elem is not None else "clips"
+                        raw_content = content_elem.text if content_elem is not None else ""
+
+                        # 1. Safety Check: Filter out adult language, crime, politics, and controversies
+                        if not is_content_safe(title):
+                            continue
+
+                        # 2. Soccer Relevance: If soccer group, must be an actual goal or skill play
+                        if category_type == "soccer" and not is_soccer_highlight(title):
+                            continue
+
+                        # 3. Video Verification: Must be a confirmed video (reject images/infographics)
+                        is_video, direct_media_url = extract_media_details(permalink, raw_content)
+                        if not is_video:
+                            continue
+
+                        item_id = f"reddit_{post_id}"
+                        if not self.storage.is_seen(item_id):
+                            encoded_title = urllib.parse.quote(title)
+                            encoded_permalink = urllib.parse.quote(permalink)
+
+                            # RapidSave 1-Click 1080p Downloader
+                            download_url = f"https://rapidsave.com/info?url={encoded_permalink}"
+
+                            # Category Customization
+                            if category_type == "asmr":
+                                icon = "✨"
+                                category_label = "Satisfying / ASMR Video"
+                                capcut_query = f"{encoded_title}+satisfying+asmr+capcut+template"
+                                audio_query = f"satisfying+asmr+relaxing+trending+audio"
+                                embed_color = 0x9B59B6  # Purple
+                            elif category_type == "phonk":
+                                icon = "🎵"
+                                category_label = "Brazilian / Drift Phonk Audio"
+                                capcut_query = f"brazilian+phonk+velocity+edit+capcut+template"
+                                audio_query = f"brazilian+phonk+new+age+edit+audio"
+                                embed_color = 0x3498DB  # Blue
+                            else:
+                                icon = "⚽"
+                                category_label = "Soccer Goal / Skill Move"
+                                capcut_query = f"{encoded_title}+velocity+edit+capcut+template"
+                                audio_query = f"brazilian+phonk+soccer+edit+audio"
+                                embed_color = 0xE67E22  # Orange
+
+                            capcut_search_url = f"https://www.tiktok.com/search?q={capcut_query}"
+                            audio_search_url = f"https://www.youtube.com/results?search_query={audio_query}"
+
+                            fields = [
+                                {"name": "Category", "value": f"{category_label}", "inline": True},
+                                {"name": "Subreddit", "value": f"r/{sub_name}", "inline": True},
+                                {"name": "Velocity", "value": f"⚡ {sort_type.upper()}", "inline": True},
+                                {
+                                    "name": "⬇️ Direct Video & Downloader",
+                                    "value": f"[▶️ Watch Direct Video]({direct_media_url})\n[📥 1-Click 1080p MP4 Download]({download_url})",
+                                    "inline": False
+                                },
+                                {
+                                    "name": "✂️ CapCut Templates & Audio",
+                                    "value": f"[Find CapCut Velocity Template]({capcut_search_url}) • [Trending Sounds]({audio_search_url})",
+                                    "inline": False
+                                }
+                            ]
+
+                            success = self.webhook.send_embed(
+                                title=f"{icon} {title}",
+                                url=direct_media_url,
+                                description=f"Fresh video clip trending in r/{sub_name} ({sort_type}).",
+                                fields=fields,
+                                color=embed_color,
+                                footer=f"Radar • {group_name}"
+                            )
+                            if success:
+                                self.storage.mark_seen(item_id)
+                                dispatched_count += 1
+                                time.sleep(1)
+
+                    time.sleep(2)
+
+                except urllib.error.HTTPError as e:
+                    logger.error(f"HTTP error on r/{combined_subs} ({sort_type}): {e.code} {e.reason}")
+                except Exception as e:
+                    logger.error(f"Error on r/{combined_subs} ({sort_type}): {e}")
+
         self.storage.save()
-        logger.info("Scan cycle completed.")
+        logger.info(f"Scan cycle completed. Dispatched {dispatched_count} fresh video clips.")
 
 
 def main():
